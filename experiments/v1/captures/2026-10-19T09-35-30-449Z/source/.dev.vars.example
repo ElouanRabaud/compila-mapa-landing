@@ -1,0 +1,8 @@
+# Copiar a .dev.vars SOLO para desarrollo; nunca subir este archivo con secretos.
+MAILCHIMP_API_KEY=
+MAILCHIMP_AUDIENCE_ID=36d5edad54
+# Activar solo tras completar y revisar los datos legales de site.config.json.
+REGISTRATION_ENABLED=false
+SITE_ORIGIN=http://127.0.0.1:8788
+# Solo si la audiencia tiene permisos GDPR: ID del permiso de email para esta finalidad.
+MAILCHIMP_MARKETING_PERMISSION_ID=

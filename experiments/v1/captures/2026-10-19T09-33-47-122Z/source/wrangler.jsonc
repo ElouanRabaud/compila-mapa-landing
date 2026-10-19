@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "compila-mapa",
+  "pages_build_output_dir": "./public",
+  "compatibility_date": "2026-10-19",
+  "vars": {
+    "SITE_ORIGIN": "https://mapa.compila.es",
+    "MAILCHIMP_AUDIENCE_ID": "36d5edad54",
+    "REGISTRATION_ENABLED": "false"
+  }
+}
