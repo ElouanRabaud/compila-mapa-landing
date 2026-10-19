@@ -6,6 +6,6 @@
   "vars": {
     "SITE_ORIGIN": "https://mapa.compila.es",
     "MAILCHIMP_AUDIENCE_ID": "36d5edad54",
-    "REGISTRATION_ENABLED": "false"
+    "REGISTRATION_ENABLED": "true"
   }
 }
