@@ -1,4 +1,5 @@
 import { readFile, writeFile, mkdir, cp } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { config } from '../src/config.js';
 const production = process.argv.includes('--production');
 const legal = config.legal;
@@ -7,6 +8,21 @@ if (production && !ready) throw new Error('Completa responsable, NIF, domicilio 
 await mkdir('public/assets', { recursive: true });
 for (const file of ['index.html','styles.css','app.js','analytics.js','config.js','_headers','_routes.json','robots.txt']) await cp('src/' + file, 'public/' + file);
 await cp('assets', 'public/assets', { recursive: true });
+// Versionar también las dependencias para evitar mezclar módulos de distintas publicaciones.
+const assetVersions = new Map();
+for (const file of ['config.js', 'analytics.js', 'app.js', 'styles.css']) {
+  let content = await readFile('src/' + file, 'utf8');
+  for (const [dependency, version] of assetVersions) {
+    content = content.replaceAll("'./" + dependency + "'", "'./" + dependency + '?v=' + version + "'");
+  }
+  assetVersions.set(file, createHash('sha256').update(content).digest('hex').slice(0, 12));
+  await writeFile('public/' + file, content);
+}
+let shell = await readFile('src/index.html', 'utf8');
+for (const file of ['styles.css', 'app.js']) {
+  shell = shell.replaceAll('"/' + file + '"', '"/' + file + '?v=' + assetVersions.get(file) + '"');
+}
+await writeFile('public/index.html', shell);
 const escape = value => String(value || 'Pendiente de completar antes de publicar').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
 const draft = ready ? '' : '<p class="draft">Vista previa. Información legal pendiente de completar. El registro permanece cerrado hasta configurar el servicio.</p>';
 const identity = `<p>Responsable: ${escape(legal.controller)}. NIF: ${escape(legal.taxId)}. Domicilio: ${escape(legal.address)}. Contacto y ejercicio de derechos: ${escape(legal.email)}.</p>`;
@@ -15,7 +31,6 @@ const pages = {
   'aviso-legal.html': { title:'Aviso legal', content: `${identity}<h2>Objeto de la web</h2><p>Compila Mapa es un proyecto de Compila Academia en fase de validación. Esta web presenta una propuesta educativa y permite solicitar que te avisemos cuando esté disponible. Registrarse no permite usar una plataforma ni formaliza una compra. No se garantiza una fecha de lanzamiento ni un resultado académico.</p><h2>Propiedad y uso</h2><p>La marca y los contenidos corresponden a sus titulares o se utilizan con la autorización correspondiente. Usa la web de forma lícita y facilita únicamente tu propio correo. No se permiten envíos automatizados abusivos ni el uso de datos de terceros sin autorización.</p><h2>Enlaces y contacto</h2><p>La web principal de Compila Academia es <a href="https://compila.es">compila.es</a>. El proyecto es una iniciativa privada; el contexto académico del experimento no implica patrocinio de la Universidad de Sevilla. Se aplica la legislación española, respetando los derechos y fueros que correspondan a los consumidores.</p>` },
   'cookies.html': { title:'Política de cookies', content: `<h2>Sin analítica hasta que tú aceptes</h2><p>Google Analytics 4 (propiedad G-QKEN3GRY80) solo se carga tras aceptar analítica. Rechazar y aceptar se ofrecen en el mismo panel y con la misma prominencia. Puedes cambiar de opinión desde «Configurar cookies» en el pie. Al revocar, se desactiva la analítica y se borran las cookies de Analytics creadas por este subdominio.</p><h2>Qué se guarda en tu navegador</h2><p>La preferencia de consentimiento se conserva en almacenamiento local con la clave compila-mapa-consent-v1 durante un máximo de 180 días. Es necesaria para recordar tu elección. Tras aceptar, Google puede crear _ga y _ga_* para distinguir usuarios y sesiones, con duración configurada de hasta 180 días, renovable durante el uso. Se limita su ámbito a mapa.compila.es. En almacenamiento de sesión se guardan comprobantes aleatorios de eventos enviados para evitar duplicados, que desaparecen al cerrar la pestaña.</p><h2>Finalidad y proveedor</h2><p>Google Analytics mide visitas, procedencia, sesiones y nuevas solicitudes aceptadas por Mailchimp. La medición excluye a quienes rechazan la analítica o usan bloqueadores. No activamos publicidad ni Google Signals. Más información en la <a href="https://policies.google.com/privacy?hl=es">privacidad de Google</a> y en nuestra <a href="/privacidad.html">política de privacidad</a>.</p>` }
 };
-const shell = await readFile('src/index.html', 'utf8');
 for (const [file, page] of Object.entries(pages)) {
   let html = shell.replace(/<title>.*?<\/title>/, '<title>' + page.title + ' · Compila Mapa</title>')
     .replace(/<link rel="canonical"[^>]*>/, '<meta name="robots" content="noindex">')

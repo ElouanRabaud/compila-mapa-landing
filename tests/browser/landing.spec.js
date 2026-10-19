@@ -24,6 +24,7 @@ test('desktop y móvil: no hay desbordamiento y los controles son utilizables',a
   await expect(page.locator('h1')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   const button=await page.locator('#open-waitlist').boundingBox();expect(button.height).toBeGreaterThanOrEqual(44);
+  expect(Math.abs(button.x+button.width/2-width/2)).toBeLessThanOrEqual(1);
   await page.getByRole('button',{name:'Rechazar',exact:true}).click();
   await page.locator('#open-waitlist').click();
   await expect(page.locator('#submit')).toBeVisible();
