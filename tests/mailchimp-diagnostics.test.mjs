@@ -8,7 +8,7 @@ function request() {return new Request(env.SITE_ORIGIN+'/api/subscribe',{method:
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status});
 async function run(responses, verify, changes={}) {
  const originalFetch=globalThis.fetch, originalWarn=console.warn;const logs=[],calls=[];
- globalThis.fetch=async(url,options)=>{calls.push({url,options});const result=responses.shift();if(result instanceof Error)throw result;if(!result)throw Error('Unexpected call');return result;};
+ globalThis.fetch=async(url,options)=>{calls.push({url,options});const result=responses.shift();if(typeof result==='function')return result(url,options);if(result instanceof Error)throw result;if(!result)throw Error('Unexpected call');return result;};
  console.warn=value=>logs.push(JSON.parse(value));
  try {
   const response=await onRequest({request:request(),env:{...env,...changes}});
@@ -24,8 +24,28 @@ test('payload solo usa propiedades admitidas, etiquetas string y pending con DOI
   const payload=JSON.parse(calls[1].options.body);
   assert.deepEqual(Object.keys(payload).sort(),['email_address','language','status','tags','timestamp_signup']);
   assert.equal(payload.status,'pending');assert.ok(payload.tags.every(x=>typeof x==='string'));
-  assert.equal(new Date(payload.timestamp_signup).toISOString(),payload.timestamp_signup);
+  assert.match(payload.timestamp_signup,/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+  assert.ok(Number.isFinite(Date.parse(payload.timestamp_signup)));
   assert.ok(!calls[1].url.includes('skip_merge_validation'));assert.equal(calls[1].options.method,'POST');
+ });
+});
+test('regresión timestamp_signup: UTC sin milisegundos y alta pendiente con double opt-in',async t=>{
+ t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-19T10:45:09.702Z')});
+ await run([audience(),(_url,options)=>{
+  const payload=JSON.parse(options.body);
+  // Emulates the observed timestamp rejection, without calling the real API.
+  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(payload.timestamp_signup)) {
+   return json({title:'Invalid Resource',detail:'The resource submitted could not be validated.',errors:[{field:'timestamp_signup',message:'Invalid date format'}]},400);
+  }
+  return json({status:'pending'});
+ }],({response,body,calls,logs})=>{
+  assert.equal(response.status,200);assert.equal(body.accepted,true);assert.equal(body.created,true);
+  assert.equal(body.subscriptionStatus,'pending');assert.equal(logs.length,0);
+  const payload=JSON.parse(calls[1].options.body);
+  assert.equal(payload.timestamp_signup,'2026-10-19T10:45:09Z');
+  assert.equal(payload.status,'pending');assert.ok(!Object.hasOwn(payload,'timestamp_opt'));
+  assert.ok(payload.tags.includes('consent:'+config.privacyVersion));
+  assert.equal(calls.length,2);
  });
 });
 test('400 por FNAME obligatorio identifica el campo sin exponer error o correo al navegador',async()=>{

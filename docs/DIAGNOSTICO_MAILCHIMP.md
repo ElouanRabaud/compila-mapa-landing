@@ -2,9 +2,13 @@
 
 ## Hallazgo y límite de la investigación
 
-El código anterior convertía cualquier HTTP 400 (excepto Member Exists) en un error genérico, descartando `errors[].field`, `errors[].message` y `detail`. Esto impedía distinguir un fallo del payload de la configuración de la audiencia. No se ha recibido la respuesta privada del incidente ni existe una API key local. No es posible afirmar su causa exacta a partir de HTTP 400: queda pendiente obtener un diagnóstico real sanitizado. Las pruebas reproducen clases de error; no prueban cuál está ocurriendo en producción.
+El diagnóstico recibido de producción identifica `stage=member`, HTTP 400, `timestamp_signup` y `invalid_format`. En ese envío, `requestedStatus=pending`, `doubleOptIn=true` y `marketingPermissions=false`. El rechazo observado corresponde al formato de la fecha; no hay evidencia en ese diagnóstico de un problema de permisos o de otros campos.
 
-La documentación oficial del POST admite `email_address`, `status`, `language`, `timestamp_signup`, `tags` como array de strings y `marketing_permissions` como array de objetos con `marketing_permission_id` y `enabled`. No hay evidencia para quitar timestamps, convertir las etiquetas a objetos o cambiar a subscribed para resolver el 400. Se conserva el payload documentado. Si la audiencia exige double opt-in se envía pending; solo se acepta un estado de respuesta coincidente.
+El código enviaba `new Date().toISOString()`, que incluye milisegundos (`YYYY-MM-DDTHH:mm:ss.sssZ`). La corrección conserva la fecha UTC y elimina únicamente la fracción de segundo: `YYYY-MM-DDTHH:mm:ssZ`, como el ejemplo de fecha de la documentación de Mailchimp. No cambia el instante salvo por truncar milisegundos, ni la política de double opt-in, los permisos, las etiquetas de consentimiento o los datos legales. No se envía `timestamp_opt`, que correspondería a la confirmación del opt-in.
+
+Se añade una regresión con fecha fija y milisegundos no nulos: el servidor simulado rechaza una fecha con fracciones y acepta la fecha UTC sin fracciones, manteniendo el estado `pending`. Esto comprueba la corrección local; la aceptación definitiva por Mailchimp y el correo de confirmación deben verificarse en un nuevo intento real autorizado después del despliegue. No se copia aquí el evento completo del proveedor ni sus datos de conexión.
+
+El POST admite `email_address`, `status`, `language`, `timestamp_signup`, `tags` como array de strings y `marketing_permissions` como array de objetos con `marketing_permission_id` y `enabled`. El ajuste está limitado al formato de `timestamp_signup`; se conserva el diagnóstico seguro para identificar cualquier rechazo posterior.
 
 ## Qué registra la función
 

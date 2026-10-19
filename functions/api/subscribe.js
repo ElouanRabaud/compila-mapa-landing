@@ -72,7 +72,8 @@ export async function onRequest({ request, env }) {
     }
     payload = {
       email_address: email, status: audienceData.double_optin ? 'pending' : 'subscribed',
-      language: 'es', timestamp_signup: new Date().toISOString(),
+      // Mailchimp's date-time format uses whole seconds (no fractional milliseconds).
+      language: 'es', timestamp_signup: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
       tags: ['compila-mapa', 'landing:' + config.version, 'consent:' + config.privacyVersion]
     };
     if (audienceData.marketing_permissions) payload.marketing_permissions = [{ marketing_permission_id: permission, enabled: true }];
