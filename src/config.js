@@ -8,8 +8,8 @@ export const config = {
   "legal": {
     "controller": "Elouan Rabaud Coca y Mónica Novillo González (Compila)",
     "taxId": "53478650Q y 06332558Z",
-    "address": "",
-    "email": "",
+    "address": "Calle Arzón 2, Carranque",
+    "email": "info@compila.es",
     "retentionMonths": 12
   }
 };
