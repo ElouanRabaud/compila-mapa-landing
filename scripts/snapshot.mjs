@@ -13,7 +13,7 @@ try {
   await page.getByRole('button',{name:'Rechazar',exact:true}).click();
   await page.screenshot({path:directory + '/' + name + '.png',fullPage:true});await page.close();
  }
- for (const name of ['src','functions','assets','scripts','tests','docs']) await cp(name,directory + '/source/' + name,{recursive:true});
+ for (const name of ['src','functions','assets','scripts','tests','docs','lib']) await cp(name,directory + '/source/' + name,{recursive:true});
  for (const name of ['site.config.json','wrangler.jsonc','package.json','package-lock.json','playwright.config.js','README.md','.gitignore','.dev.vars.example']) await copyFile(name,directory + '/source/' + name);
  await copyFile('site.config.json',directory + '/site.config.json');
  await writeFile(directory + '/README.txt','Capturas locales de ' + config.version + '. No acreditan suscripciones, tráfico ni despliegue.\n');

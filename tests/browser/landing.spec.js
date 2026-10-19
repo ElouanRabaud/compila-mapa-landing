@@ -2,9 +2,10 @@ import { test, expect } from '@playwright/test';
 import { config } from '../../src/config.js';
 const accepted={accepted:true,created:true,receipt:'test-receipt-not-a-real-subscription',subscriptionStatus:'pending',message:'Solicitud de prueba aceptada. Confirma tu correo.'};
 async function send(page) {
+ if(!await page.getByRole('dialog').isVisible()) await page.locator('#open-waitlist').click();
  await page.getByLabel('Tu correo electrónico',{exact:true}).fill('prueba@example.com');
  await page.locator('#privacy').check();
- await page.getByRole('button',{name:'Quiero acceso anticipado'}).click();
+ await page.locator('#submit').click();
 }
 async function productionPreview(page) {
  const scripts=[];
@@ -22,19 +23,36 @@ test('desktop y móvil: no hay desbordamiento y los controles son utilizables',a
   await page.setViewportSize({width,height:900});await page.goto('/');
   await expect(page.locator('h1')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  const button=await page.locator('#submit').boundingBox();expect(button.height).toBeGreaterThanOrEqual(44);
+  const button=await page.locator('#open-waitlist').boundingBox();expect(button.height).toBeGreaterThanOrEqual(44);
   await page.getByRole('button',{name:'Rechazar',exact:true}).click();
+  await page.locator('#open-waitlist').click();
   await expect(page.locator('#submit')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.evaluate(()=>localStorage.clear());
  }
 });
 test('validación de email y consentimiento; error real del servidor sin secreto',async({page})=>{
  let posts=0;page.on('request',r=>{if(r.url().endsWith('/api/subscribe'))posts++;});
  await page.goto('/');await page.getByRole('button',{name:'Rechazar',exact:true}).click();
+ await page.locator('#open-waitlist').click();
  await page.locator('#email').fill('mal');await page.locator('#submit').click();expect(posts).toBe(0);
  await page.locator('#email').fill('alumno@example.com');await page.locator('#submit').click();expect(posts).toBe(0);
  await page.locator('#privacy').check();await page.locator('#submit').click();
  await expect(page.locator('#form-status')).toContainText('aún no está abierta');expect(posts).toBe(1);
+});
+test('acceso anticipado abre una ventana y devuelve el foco al cerrarla',async({page})=>{
+ await page.goto('/');await page.getByRole('button',{name:'Rechazar',exact:true}).click();
+ await expect(page.locator('.brand a, a.brand, .brand button')).toHaveCount(0);
+ await expect(page.locator('.intro')).toHaveCount(0);
+ await expect(page.getByRole('dialog')).not.toBeVisible();
+ await page.locator('#open-waitlist').click();
+ await expect(page.getByRole('dialog')).toBeVisible();await expect(page.locator('#email')).toBeFocused();
+ await page.keyboard.press('Escape');
+ await expect(page.getByRole('dialog')).not.toBeVisible();await expect(page.locator('#open-waitlist')).toBeFocused();
+ await page.locator('#open-waitlist').click();await page.getByRole('button',{name:'Cerrar ventana'}).click();
+ await expect(page.getByRole('dialog')).not.toBeVisible();
+ await page.locator('#open-waitlist').click();await page.mouse.click(2,2);
+ await expect(page.getByRole('dialog')).not.toBeVisible();
 });
 test('no carga GA antes de consentir y rechazar no impide el formulario',async({page})=>{
  const scripts=await productionPreview(page);expect(scripts).toHaveLength(0);

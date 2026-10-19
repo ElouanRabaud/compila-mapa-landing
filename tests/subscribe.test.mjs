@@ -7,9 +7,9 @@ const valid = {email:' Alumno@example.com ',privacy:true,website:'',version:conf
 function request(body=valid, extra={}) {return new Request(env.SITE_ORIGIN+'/api/subscribe', {method:'POST',headers:{Origin:env.SITE_ORIGIN,'Content-Type':'application/json',...extra},body:JSON.stringify(body)});}
 const json = (body,status=200)=>new Response(JSON.stringify(body),{status});
 async function mockFetch(responses,run) {
- const original=globalThis.fetch;const calls=[];
+ const original=globalThis.fetch;const originalWarn=console.warn;const calls=[];console.warn=()=>{};
  globalThis.fetch=async (url,options)=>{calls.push({url,options});const next=responses.shift();if(next instanceof Error)throw next;if(!next)throw Error('Unexpected request');return next;};
- try {await run(calls);} finally {globalThis.fetch=original;}
+ try {await run(calls);} finally {globalThis.fetch=original;console.warn=originalWarn;}
 }
 test('rechaza dirección inválida, consentimiento ausente, versión antigua y honeypot sin llamar a Mailchimp',async()=>{
  await mockFetch([],async calls=>{

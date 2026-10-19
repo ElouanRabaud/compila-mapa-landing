@@ -14,28 +14,31 @@
 </head>
 <body>
 <a class="skip-link" href="#contenido">Saltar al contenido</a>
-<header class="header container"><a class="brand" href="/" aria-label="Compila Mapa, inicio"><img src="/assets/logo.webp" width="128" height="54" alt="Compila Academia"><span class="brand-divider"></span><span class="product-name">Mapa<span class="product-dot">.</span></span></a><span class="header-note">Una nueva forma de aprender</span></header>
+<header class="header container"><div class="brand"><img src="/assets/logo.webp" width="128" height="54" alt="Compila Academia"><span class="brand-divider"></span><span class="product-name">Mapa<span class="product-dot">.</span></span></div></header>
 <main id="contenido" class="container">
 <section class="hero" aria-labelledby="headline">
 <div class="eyebrow"><span class="status-dot"></span> EN DESARROLLO <span class="eyebrow-divider">/</span> PRÓXIMAMENTE</div>
 <h1 id="headline">Has vuelto a suspender.<br><span>¿Qué está fallando?</span></h1>
-<p class="intro">Estudias, practicas y tropiezas con los mismos errores.<br class="desktop-break"> El siguiente paso es saber <strong>qué necesitas reforzar.</strong></p>
-<p class="proposal">Estamos creando <strong>Compila Mapa</strong>: una herramienta con inteligencia artificial que te ayudará a identificar los conceptos que te hacen fallar y a practicar con ejercicios personalizados.</p>
+<p class="proposal">Identifica qué conceptos te están haciendo fallar y practica de forma personalizada para centrar tu esfuerzo en lo que realmente necesitas reforzar.</p>
 <div class="form-area">
-<p class="form-heading">Que tu esfuerzo tenga dirección.</p>
+<button class="primary" id="open-waitlist" type="button" aria-haspopup="dialog" aria-controls="waitlist-dialog">Quiero acceso anticipado <span aria-hidden="true">↗</span></button>
+<noscript><p>Activa JavaScript para solicitar acceso anticipado.</p></noscript>
+</div>
+</section>
+</main>
+<dialog id="waitlist-dialog" aria-labelledby="waitlist-title" aria-describedby="form-description">
+<button class="dialog-close" id="close-waitlist" type="button" aria-label="Cerrar ventana">×</button>
+<h2 id="waitlist-title">Consigue acceso anticipado</h2>
 <p class="form-description" id="form-description">Apúntate y te avisaremos cuando puedas probarlo.</p>
 <form id="waitlist" aria-describedby="form-description" action="/api/subscribe" method="post">
 <label for="email" class="email-label">Tu correo electrónico</label>
-<div class="form-row"><input id="email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="tu@correo.com" required><button class="primary" id="submit" type="submit">Quiero acceso anticipado <span aria-hidden="true">↗</span></button></div>
+<div class="form-row"><input id="email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="tu@correo.com" required autofocus><button class="primary" id="submit" type="submit">Avisadme <span aria-hidden="true">↗</span></button></div>
 <div class="trap" aria-hidden="true"><label for="website">Deja este campo vacío</label><input id="website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
 <label class="consent-label"><input type="checkbox" name="privacy" id="privacy" required><span>Quiero recibir por email el aviso de acceso a Compila Mapa y consiento el tratamiento de mi correo según la <a href="/privacidad.html">política de privacidad</a>.</span></label>
 <p id="form-status" role="status" aria-live="polite" tabindex="-1"></p>
 </form>
 <p class="form-footnote">Para estudiantes de Ingeniería Informática. El producto aún no está disponible.</p>
-<noscript><p>Activa JavaScript para enviar el formulario y gestionar el consentimiento. La analítica permanece desactivada.</p></noscript>
-</div>
-</section>
-</main>
+</dialog>
 <footer class="footer container"><p>Un proyecto de <a href="https://compila.es">Compila Academia <span aria-hidden="true">↗</span></a></p><div class="footer-links"><a href="/aviso-legal.html">Aviso legal</a><a href="/privacidad.html">Privacidad</a><a href="/cookies.html">Cookies</a><button type="button" class="text-button" id="cookie-settings">Configurar cookies</button></div></footer>
 <aside id="cookie-banner" class="cookie-banner" aria-label="Preferencias de analítica" hidden><div><strong>Tú decides sobre la analítica</strong><p>Con tu permiso usamos Google Analytics para conocer las visitas y los registros. Puedes rechazarlo y apuntarte igualmente. <a href="/cookies.html">Más información</a>.</p></div><div class="cookie-actions"><button type="button" data-consent="denied">Rechazar</button><button type="button" data-consent="granted">Aceptar analítica</button></div></aside>
 </body></html>

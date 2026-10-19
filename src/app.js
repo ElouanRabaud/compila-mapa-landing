@@ -1,6 +1,13 @@
 import { config } from './config.js';
 import { initConsent, trackLead } from './analytics.js';
 initConsent();
+const dialog = document.querySelector('#waitlist-dialog');
+document.querySelector('#open-waitlist')?.addEventListener('click', () => dialog.showModal());
+document.querySelector('#close-waitlist')?.addEventListener('click', () => dialog.close());
+dialog?.addEventListener('click', event => {
+  const bounds = dialog.getBoundingClientRect();
+  if (event.target === dialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) dialog.close();
+});
 const form = document.querySelector('#waitlist');
 let busy = false;
 form?.addEventListener('submit', async event => {

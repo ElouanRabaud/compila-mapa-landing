@@ -1,4 +1,5 @@
 import { config } from '../../src/config.js';
+import { reportDiagnostic, safeField } from '../../lib/mailchimp-diagnostics.mjs';
 const MAX_BODY = 4096;
 function reply(status, payload) {
   return new Response(JSON.stringify(payload), { status, headers: {
@@ -42,41 +43,71 @@ export async function onRequest({ request, env }) {
   if (env.REGISTRATION_ENABLED !== 'true' || !dc || !/^[a-zA-Z0-9]+$/.test(list || '')) return failure(503, 'La lista de espera aún no está abierta. Vuelve a intentarlo más adelante.');
   const endpoint = `https://${dc}.api.mailchimp.com/3.0/lists/${list}`;
   const headers = { Authorization: 'Basic ' + btoa('compila:' + key), 'Content-Type': 'application/json' };
-  const mc = async (url, options = {}) => {
-    const response = await fetch(url, { ...options, headers, signal: AbortSignal.timeout(9000) });
-    let data;
-    try { data = await response.json(); } catch { throw new Error('upstream'); }
+  const mc = async (url, options = {}, timeout = 9000) => {
+    const response = await fetch(url, { ...options, headers, signal: AbortSignal.timeout(timeout) });
+    let data = null;
+    try { data = await response.json(); } catch { /* Safe diagnostics below; never log the raw body. */ }
     return { response, data };
+  };
+  let stage = 'audience';
+  let audienceData = null;
+  let payload = null;
+  const reject = (status, message, context = {}) => {
+    const reference = reportDiagnostic({ stage, payload, audience: audienceData, ...context });
+    return reply(status, { accepted: false, reference, message: message + ' Referencia: ' + reference });
   };
   try {
     const audience = await mc(endpoint);
-    if (!audience.response.ok || audience.data.name !== 'Compila Mapa' || typeof audience.data.double_optin !== 'boolean') throw new Error('audience');
+    if (!audience.response.ok || !audience.data) return reject(503, 'No hemos podido verificar la audiencia de Mailchimp.', {
+      status: audience.response.status, data: audience.data, code: !audience.data ? 'invalid_json_response' : undefined
+    });
+    audienceData = audience.data;
+    if (audienceData.name !== 'Compila Mapa') return reject(503, 'No hemos podido verificar la audiencia de Mailchimp.', { code: 'audience_mismatch' });
+    if (typeof audienceData.double_optin !== 'boolean' || (audienceData.marketing_permissions !== undefined && typeof audienceData.marketing_permissions !== 'boolean')) {
+      return reject(503, 'No hemos podido verificar la configuración de Mailchimp.', { code: 'invalid_audience_configuration' });
+    }
     const permission = env.MAILCHIMP_MARKETING_PERMISSION_ID;
-    if (audience.data.marketing_permissions && !/^[a-zA-Z0-9]+$/.test(permission || '')) throw new Error('permission');
-    const payload = {
-      email_address: email, status: audience.data.double_optin ? 'pending' : 'subscribed',
+    if (audienceData.marketing_permissions && !/^[a-zA-Z0-9]+$/.test(permission || '')) {
+      return reject(503, 'No hemos podido verificar los permisos de suscripción.', { code: 'missing_marketing_permission' });
+    }
+    payload = {
+      email_address: email, status: audienceData.double_optin ? 'pending' : 'subscribed',
       language: 'es', timestamp_signup: new Date().toISOString(),
       tags: ['compila-mapa', 'landing:' + config.version, 'consent:' + config.privacyVersion]
     };
-    if (audience.data.marketing_permissions) payload.marketing_permissions = [{ marketing_permission_id: permission, enabled: true }];
+    if (audienceData.marketing_permissions) payload.marketing_permissions = [{ marketing_permission_id: permission, enabled: true }];
     // POST crea exclusivamente: no reactiva bajas ni sobrescribe contactos existentes.
+    stage = 'member';
     const member = await mc(endpoint + '/members', { method: 'POST', body: JSON.stringify(payload) });
     if (!member.response.ok) {
-      if (member.data.title === 'Member Exists') return reply(200, {
+      if (member.response.status === 400 && member.data?.title === 'Member Exists') return reply(200, {
         accepted: true, created: false, subscriptionStatus: 'existing',
         message: 'Este correo ya figura en la audiencia. Si tenías una confirmación pendiente, revisa tu bandeja de entrada y spam. Si te diste de baja, utiliza el formulario de Mailchimp para volver a solicitar el alta.'
       });
-      if (member.response.status === 400) return failure(422, 'Mailchimp no ha aceptado el alta. Revisa el correo. Si te diste de baja anteriormente, vuelve a suscribirte desde el formulario de Mailchimp.');
-      throw new Error('mailchimp');
+      // Read-only metadata lookup identifies custom merge fields without logging their tags/names.
+      let mergeFields = [];
+      if (Array.isArray(member.data?.errors) && member.data.errors.some(error => safeField(error?.field).field === 'unknown_field')) {
+        try {
+          const schema = await mc(endpoint + '/merge-fields?count=1000', {}, 3000);
+          if (schema.response.ok && Array.isArray(schema.data?.merge_fields)) mergeFields = schema.data.merge_fields;
+        } catch { /* Preserve the original rejection; no automatic POST retry. */ }
+      }
+      return reject(member.response.status === 400 ? 422 : 503,
+        'No hemos podido completar el registro con Mailchimp. Inténtalo de nuevo más tarde.',
+        { status: member.response.status, data: member.data, mergeFields, code: !member.data ? 'invalid_json_response' : undefined });
     }
-    if (!['pending', 'subscribed'].includes(member.data.status)) throw new Error('status');
+    // Never report a confirmed subscription when the audience requires double opt-in.
+    if (!member.data || member.data.status !== payload.status) return reject(503,
+      'No hemos podido confirmar el estado de la solicitud. Inténtalo de nuevo más tarde.',
+      { status: member.response.status, code: !member.data ? 'invalid_json_response' : 'unexpected_subscription_status' });
     const pending = member.data.status === 'pending';
     return reply(200, { accepted: true, created: true, receipt: crypto.randomUUID(),
       subscriptionStatus: member.data.status,
       message: pending ? '¡Solicitud recibida! Revisa tu correo y pulsa el enlace de Mailchimp para confirmar tu dirección. Hasta entonces, tu suscripción está pendiente. Mira también en spam.' : '¡Ya estás en la lista de espera! Te avisaremos por email cuando Compila Mapa esté disponible. No necesitas confirmar otro correo.'
     });
-  } catch {
-    // No registrar correos, claves ni cuerpos de respuesta de Mailchimp.
-    return failure(503, 'No hemos podido confirmar el alta con Mailchimp. Inténtalo de nuevo más tarde; no se duplicará tu registro.');
+  } catch (error) {
+    return reject(503, 'No hemos podido confirmar el alta con Mailchimp. Inténtalo de nuevo más tarde; no se duplicará tu registro.', {
+      code: ['TimeoutError', 'AbortError'].includes(error?.name) ? 'timeout' : 'upstream_unavailable'
+    });
   }
 }
